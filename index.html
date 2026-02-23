@@ -9,11 +9,60 @@
 <body>
     <header>
         <h1>Character AI Maker</h1>
-        <button id="clearBtn">Clear Data</button>
+        <div class="header-actions">
+            <button id="apiSettingsBtn" class="outline-btn">⚙️ AI Settings</button>
+            <button id="clearBtn">Clear Data</button>
+        </div>
     </header>
+
+    <div id="apiModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>AI API Configuration</h2>
+                <span class="close-btn" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="help-text">Configure your AI provider here. This is saved locally in your browser.</p>
+                <div class="form-group">
+                    <label for="apiProvider">API Format</label>
+                    <select id="apiProvider">
+                        <option value="openai">OpenAI Compatible (ChatGPT, LM Studio, etc.)</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="claude">Anthropic Claude</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="apiUrl">API Endpoint URL</label>
+                    <input type="text" id="apiUrl" placeholder="e.g., https://api.openai.com/v1/chat/completions">
+                </div>
+                <div class="form-group">
+                    <label for="apiKey">API Key (Leave blank if using local AI like LM Studio)</label>
+                    <input type="password" id="apiKey" placeholder="sk-...">
+                </div>
+                <div class="form-group">
+                    <label for="apiModel">Model Name</label>
+                    <input type="text" id="apiModel" placeholder="e.g., gpt-3.5-turbo, gemini-pro">
+                </div>
+                <button id="saveApiBtn" class="full-width-btn">Save Settings</button>
+            </div>
+        </div>
+    </div>
 
     <main class="container">
         <section class="editor-section">
+            
+            <div class="ai-magic-box">
+                <h3>✨ AI Auto-Generator</h3>
+                <p class="help-text">Type your main idea below. The AI will fill out the rest of the character sheet for you.</p>
+                <div class="form-group">
+                    <textarea id="mainIdeaInput" rows="3" placeholder="e.g., A grumpy cyberpunk bartender with a mechanical arm who secretly loves stray cats..."></textarea>
+                </div>
+                <button id="generateAiBtn" class="magic-btn">Generate Character Profile</button>
+                <div id="loadingIndicator" class="hidden">Generating... Please wait.</div>
+            </div>
+
+            <hr class="divider">
+
             <form id="charForm">
                 <div class="form-group">
                     <label for="title">Title (Nickname/Theme)</label>
@@ -22,11 +71,7 @@
 
                 <div class="form-group">
                     <label for="name">Name</label>
-                    <div class="input-with-btn">
-                        <input type="text" id="name" placeholder="Character's Name">
-                        <button type="button" id="suggestNameBtn">Suggest</button>
-                    </div>
-                    <small id="nameSuggestion" class="suggestion-text"></small>
+                    <input type="text" id="name" placeholder="Character's Name">
                 </div>
 
                 <div class="form-group">

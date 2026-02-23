@@ -7,85 +7,143 @@ const categoriesList = [
     "vampire", "vtubers", "Yandere", "yaoi", "yuri"
 ];
 
-const mockNames = ["Aeliana", "Kaelen", "Nyx", "Orion", "Seraphina", "Darius", "Lyra", "Zephyr", "Ronin", "Silas"];
-
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Render Categories
-    const categoriesGrid = document.getElementById("categoriesGrid");
-    categoriesList.forEach(cat => {
-        const label = document.createElement("label");
-        label.innerHTML = `<input type="checkbox" value="${cat}" class="cat-checkbox"> ${cat}`;
-        categoriesGrid.appendChild(label);
-    });
+    // 1. Initialize UI
+    renderCategories();
+    loadApiSettings();
+    loadCharacterData();
 
-    const formInputs = document.querySelectorAll("input, textarea");
-    const checkboxes = document.querySelectorAll(".cat-checkbox");
+    // 2. Modal Logic
+    const modal = document.getElementById("apiModal");
+    document.getElementById("apiSettingsBtn").onclick = () => modal.style.display = "block";
+    document.getElementById("closeModal").onclick = () => modal.style.display = "none";
+    window.onclick = (e) => { if (e.target == modal) modal.style.display = "none"; };
 
-    // 2. Load from LocalStorage
-    loadData();
-
-    // 3. Event Listeners for real-time updates and saving
-    formInputs.forEach(input => {
-        input.addEventListener("input", updateOutput);
-    });
-    
-    // Checkboxes require a specific event listener
-    document.getElementById("categoriesGrid").addEventListener("change", updateOutput);
-
-    // 4. Buttons
-    document.getElementById("copyBtn").addEventListener("click", copyToClipboard);
-    document.getElementById("clearBtn").addEventListener("click", clearData);
-    document.getElementById("suggestNameBtn").addEventListener("click", suggestName);
-
-    // Initial render
-    updateOutput();
-});
-
-function updateOutput() {
-    const data = getFormData();
-    saveData(data); // Save to local storage on every change
-
-    // Construct Persona JSON
-    const personaJSON = {
-        background_story: data.bg_story,
-        appearance: {
-            hair: data.app_hair,
-            eye: data.app_eye,
-            body: data.app_body,
-            clothes: data.app_clothes,
-            accessories: data.app_accessories
-        },
-        personality: data.personality.split(',').map(p => p.trim()).filter(p => p)
+    // 3. Save API Settings
+    document.getElementById("saveApiBtn").onclick = () => {
+        const settings = {
+            provider: document.getElementById("apiProvider").value,
+            url: document.getElementById("apiUrl").value,
+            key: document.getElementById("apiKey").value,
+            model: document.getElementById("apiModel").value
+        };
+        localStorage.setItem("ai_api_settings", JSON.stringify(settings));
+        alert("Settings Saved!");
+        modal.style.display = "none";
     };
 
-    // Format the final string
-    const finalOutput = `Title: ${data.title}
-Name: ${data.name}
-Description: ${data.description}
+    // 4. Main AI Generation Logic
+    document.getElementById("generateAiBtn").onclick = generateCharacter;
 
-[Persona]
-${JSON.stringify(personaJSON, null, 2)}
+    // 5. Form Listeners for Live Preview
+    document.querySelectorAll("input, textarea, select").forEach(input => {
+        input.addEventListener("input", updateOutput);
+    });
+    document.getElementById("categoriesGrid").addEventListener("change", updateOutput);
+    
+    // 6. Action Buttons
+    document.getElementById("copyBtn").onclick = copyToClipboard;
+    document.getElementById("clearBtn").onclick = clearData;
+});
 
-[First Message]
-${data.first_message}
+// --- API HANDLING ---
 
-[Scenario]
-${data.scenario}
+async function generateCharacter() {
+    const mainIdea = document.getElementById("mainIdeaInput").value;
+    const settings = JSON.parse(localStorage.getItem("ai_api_settings"));
 
-[Example Dialogue]
-${data.dialogue}
+    if (!mainIdea) return alert("Please enter a main idea first!");
+    if (!settings || !settings.url) return alert("Please configure your API Settings first (gear icon).");
 
-Tags: ${data.custom_tags}
-Categories: ${data.selected_categories.join(", ")}
-Additional Notes: ${data.addition}
-`;
+    toggleLoading(true);
 
-    document.getElementById("outputPreview").textContent = finalOutput;
+    const systemPrompt = `You are a Character Creator AI. Based on the user's idea, generate a full character profile. 
+    You MUST respond ONLY with a JSON object. Do not write prose. 
+    Fields: title, name, description, bg_story, app_hair, app_eye, app_body, app_clothes, app_accessories, personality (comma separated string), first_message, scenario, dialogue, custom_tags, categories (array of strings matching: ${categoriesList.join(', ')}).`;
+
+    try {
+        let response;
+        const payload = {
+            model: settings.model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Create this character: ${mainIdea}` }
+            ],
+            temperature: 0.7
+        };
+
+        // Basic Fetch for OpenAI-compatible endpoints (OpenRouter, LM Studio, etc.)
+        const res = await fetch(settings.url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${settings.key}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        const content = data.choices[0].message.content;
+        const parsedChar = JSON.parse(content.replace(/```json|```/g, "")); // Clean markdown if AI sends it
+
+        fillForm(parsedChar);
+    } catch (error) {
+        console.error("AI Error:", error);
+        alert("Failed to generate. Check console or API settings.");
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+// --- UTILITY FUNCTIONS ---
+
+function fillForm(data) {
+    document.getElementById("title").value = data.title || "";
+    document.getElementById("name").value = data.name || "";
+    document.getElementById("description").value = data.description || "";
+    document.getElementById("bg_story").value = data.bg_story || "";
+    document.getElementById("app_hair").value = data.app_hair || "";
+    document.getElementById("app_eye").value = data.app_eye || "";
+    document.getElementById("app_body").value = data.app_body || "";
+    document.getElementById("app_clothes").value = data.app_clothes || "";
+    document.getElementById("app_accessories").value = data.app_accessories || "";
+    document.getElementById("personality").value = data.personality || "";
+    document.getElementById("first_message").value = data.first_message || "";
+    document.getElementById("scenario").value = data.scenario || "";
+    document.getElementById("dialogue").value = data.dialogue || "";
+    document.getElementById("custom_tags").value = data.custom_tags || "";
+
+    // Handle Categories
+    document.querySelectorAll(".cat-checkbox").forEach(cb => {
+        cb.checked = data.categories && data.categories.includes(cb.value);
+    });
+
+    updateOutput();
+}
+
+function updateOutput() {
+    const form = getFormData();
+    saveCharacterData(form);
+
+    const personaJSON = {
+        background_story: form.bg_story,
+        appearance: {
+            hair: form.app_hair,
+            eye: form.app_eye,
+            body: form.app_body,
+            clothes: form.app_clothes,
+            accessories: form.app_accessories
+        },
+        personality: form.personality.split(',').map(p => p.trim()).filter(p => p)
+    };
+
+    const output = `Title: ${form.title}\nName: ${form.name}\nDescription: ${form.description}\n\n[Persona]\n${JSON.stringify(personaJSON, null, 2)}\n\n[First Message]\n${form.first_message}\n\n[Scenario]\n${form.scenario}\n\n[Example Dialogue]\n${form.dialogue}\n\nTags: ${form.custom_tags}\nCategories: ${form.selected_categories.join(", ")}\nAddition: ${form.addition}`;
+    
+    document.getElementById("outputPreview").textContent = output;
 }
 
 function getFormData() {
-    const selected_categories = Array.from(document.querySelectorAll(".cat-checkbox:checked")).map(cb => cb.value);
-    
+    const selected = Array.from(document.querySelectorAll(".cat-checkbox:checked")).map(cb => cb.value);
     return {
         title: document.getElementById("title").value,
         name: document.getElementById("name").value,
@@ -102,67 +160,52 @@ function getFormData() {
         dialogue: document.getElementById("dialogue").value,
         custom_tags: document.getElementById("custom_tags").value,
         addition: document.getElementById("addition").value,
-        selected_categories: selected_categories
+        selected_categories: selected
     };
 }
 
-function saveData(data) {
-    localStorage.setItem("charAiMakerData", JSON.stringify(data));
+function renderCategories() {
+    const grid = document.getElementById("categoriesGrid");
+    categoriesList.forEach(cat => {
+        const label = document.createElement("label");
+        label.innerHTML = `<input type="checkbox" value="${cat}" class="cat-checkbox"> ${cat}`;
+        grid.appendChild(label);
+    });
 }
 
-function loadData() {
-    const saved = localStorage.getItem("charAiMakerData");
-    if (saved) {
-        const data = JSON.parse(saved);
-        document.getElementById("title").value = data.title || "";
-        document.getElementById("name").value = data.name || "";
-        document.getElementById("description").value = data.description || "";
-        document.getElementById("bg_story").value = data.bg_story || "";
-        document.getElementById("app_hair").value = data.app_hair || "";
-        document.getElementById("app_eye").value = data.app_eye || "";
-        document.getElementById("app_body").value = data.app_body || "";
-        document.getElementById("app_clothes").value = data.app_clothes || "";
-        document.getElementById("app_accessories").value = data.app_accessories || "";
-        document.getElementById("personality").value = data.personality || "";
-        document.getElementById("first_message").value = data.first_message || "";
-        document.getElementById("scenario").value = data.scenario || "";
-        document.getElementById("dialogue").value = data.dialogue || "";
-        document.getElementById("custom_tags").value = data.custom_tags || "";
-        document.getElementById("addition").value = data.addition || "";
+function toggleLoading(isLoading) {
+    document.getElementById("loadingIndicator").classList.toggle("hidden", !isLoading);
+    document.getElementById("generateAiBtn").disabled = isLoading;
+}
 
-        // Checkboxes
-        if (data.selected_categories) {
-            document.querySelectorAll(".cat-checkbox").forEach(cb => {
-                if (data.selected_categories.includes(cb.value)) {
-                    cb.checked = true;
-                }
-            });
-        }
+function loadApiSettings() {
+    const saved = localStorage.getItem("ai_api_settings");
+    if (saved) {
+        const s = JSON.parse(saved);
+        document.getElementById("apiProvider").value = s.provider;
+        document.getElementById("apiUrl").value = s.url;
+        document.getElementById("apiKey").value = s.key;
+        document.getElementById("apiModel").value = s.model;
     }
 }
 
+function saveCharacterData(data) { localStorage.setItem("draft_char", JSON.stringify(data)); }
+
+function loadCharacterData() {
+    const saved = localStorage.getItem("draft_char");
+    if (saved) fillForm(JSON.parse(saved));
+}
+
 function clearData() {
-    if (confirm("Are you sure you want to clear all data? This cannot be undone.")) {
-        localStorage.removeItem("charAiMakerData");
-        document.getElementById("charForm").reset();
-        document.querySelectorAll(".cat-checkbox").forEach(cb => cb.checked = false);
-        updateOutput();
+    if (confirm("Clear all?")) {
+        localStorage.removeItem("draft_char");
+        location.reload();
     }
 }
 
 function copyToClipboard() {
-    const text = document.getElementById("outputPreview").textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById("copyBtn");
-        btn.textContent = "Copied!";
-        setTimeout(() => btn.textContent = "Copy Result", 2000);
-    });
-}
-
-function suggestName() {
-    // Simple array randomization. If you want true AI, you would hook up a fetch request to an LLM API here.
-    const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
-    document.getElementById("name").value = randomName;
-    document.getElementById("nameSuggestion").textContent = "Suggested: " + randomName;
-    updateOutput();
+    navigator.clipboard.writeText(document.getElementById("outputPreview").textContent);
+    const btn = document.getElementById("copyBtn");
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = "Copy Result", 2000);
 }
