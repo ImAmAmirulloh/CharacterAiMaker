@@ -1,5 +1,0 @@
-{
-  "name": "Character AI Maker",
-  "description": "An application that uses Gemini to generate detailed character profiles for AI chatbots, including persona, dialogue, and scenarios based on a user-provided theme.",
-  "requestFramePermissions": []
-}

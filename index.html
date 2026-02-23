@@ -1,58 +1,101 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Character AI Maker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-    @keyframes shimmer {
-      100% { transform: translateX(100%); }
-    }
-    .shimmer-bg::after {
-      content: '';
-      position: absolute;
-      top: 0; right: 0; bottom: 0; left: 0;
-      transform: translateX(-100%);
-      background-image: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0) 0,
-        rgba(255, 255, 255, 0.05) 20%,
-        rgba(255, 255, 255, 0.2) 60%,
-        rgba(255, 255, 255, 0)
-      );
-      animation: shimmer 2s infinite;
-    }
-  </style>
-<script type="importmap">
-{
-  "imports": {
-    "rxjs": "https://esm.sh/rxjs@^7.8.2?conditions=es2015",
-    "rxjs/operators": "https://esm.sh/rxjs@^7.8.2/operators?conditions=es2015",
-    "rxjs/ajax": "https://esm.sh/rxjs@^7.8.2/ajax?conditions=es2015",
-    "rxjs/webSocket": "https://esm.sh/rxjs@^7.8.2/webSocket?conditions=es2015",
-    "rxjs/testing": "https://esm.sh/rxjs@^7.8.2/testing?conditions=es2015",
-    "rxjs/fetch": "https://esm.sh/rxjs@^7.8.2/fetch?conditions=es2015",
-    "@angular/compiler": "https://esm.sh/@angular/compiler@^21.1.4?external=rxjs",
-    "@angular/common": "https://esm.sh/@angular/common@^21.1.4?external=rxjs",
-    "@angular/common/http": "https://esm.sh/@angular/common@^21.1.4/http?external=rxjs",
-    "@angular/platform-browser": "https://esm.sh/@angular/platform-browser@^21.1.4?external=rxjs",
-    "@angular/core": "https://esm.sh/@angular/core@^21.1.4?external=rxjs",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0?external=rxjs"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character AI Maker</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-900 text-gray-100">
-  <app-root></app-root>
+<body>
+    <header>
+        <h1>Character AI Maker</h1>
+        <button id="clearBtn">Clear Data</button>
+    </header>
+
+    <main class="container">
+        <section class="editor-section">
+            <form id="charForm">
+                <div class="form-group">
+                    <label for="title">Title (Nickname/Theme)</label>
+                    <input type="text" id="title" placeholder="e.g., The Mysterious Mage">
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <div class="input-with-btn">
+                        <input type="text" id="name" placeholder="Character's Name">
+                        <button type="button" id="suggestNameBtn">Suggest</button>
+                    </div>
+                    <small id="nameSuggestion" class="suggestion-text"></small>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" rows="3" placeholder="Summarize the character..."></textarea>
+                </div>
+
+                <fieldset>
+                    <legend>Persona Details (Will generate JSON)</legend>
+                    <div class="form-group">
+                        <label for="bg_story">Background Story</label>
+                        <textarea id="bg_story" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Appearance</label>
+                        <input type="text" id="app_hair" placeholder="Hair">
+                        <input type="text" id="app_eye" placeholder="Eyes">
+                        <input type="text" id="app_body" placeholder="Body">
+                        <input type="text" id="app_clothes" placeholder="Clothes">
+                        <input type="text" id="app_accessories" placeholder="Accessories">
+                    </div>
+                    <div class="form-group">
+                        <label for="personality">Personality Traits</label>
+                        <input type="text" id="personality" placeholder="e.g., charming, mysterious, cold">
+                    </div>
+                </fieldset>
+
+                <div class="form-group">
+                    <label for="first_message">First Message</label>
+                    <textarea id="first_message" rows="4" placeholder="*walks towards {{user}}* Hello there..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="scenario">Scenario</label>
+                    <textarea id="scenario" rows="3" placeholder="World description, story scene..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="dialogue">Example Dialogue</label>
+                    <textarea id="dialogue" rows="4" placeholder="{{user}}: Who are you?&#10;{{char}}: *smirks* I'm your worst nightmare."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="custom_tags">Custom Tags (Comma separated)</label>
+                    <input type="text" id="custom_tags" placeholder="e.g., magic, slow-burn, royalty">
+                </div>
+
+                <div class="form-group">
+                    <label>Categories</label>
+                    <div class="categories-grid" id="categoriesGrid">
+                        </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="addition">Additional Needed (Custom Prompt/Rules)</label>
+                    <textarea id="addition" rows="3" placeholder="Any extra AI instructions or tweaks..."></textarea>
+                </div>
+            </form>
+        </section>
+
+        <section class="result-section">
+            <div class="result-header">
+                <h2>Generated Result</h2>
+                <button id="copyBtn">Copy Result</button>
+            </div>
+            <pre id="outputPreview">Your character output will appear here...</pre>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
 </body>
 </html>
