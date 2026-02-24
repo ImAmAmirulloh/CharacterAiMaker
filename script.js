@@ -8,18 +8,15 @@ const categoriesList = [
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Initialize UI
     renderCategories();
     loadApiSettings();
     loadCharacterData();
 
-    // 2. Modal Logic
     const modal = document.getElementById("apiModal");
     document.getElementById("apiSettingsBtn").onclick = () => modal.style.display = "block";
     document.getElementById("closeModal").onclick = () => modal.style.display = "none";
     window.onclick = (e) => { if (e.target == modal) modal.style.display = "none"; };
 
-    // 3. Save API Settings
     document.getElementById("saveApiBtn").onclick = () => {
         const settings = {
             provider: document.getElementById("apiProvider").value,
@@ -32,16 +29,13 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.style.display = "none";
     };
 
-    // 4. Main AI Generation Logic
     document.getElementById("generateAiBtn").onclick = generateCharacter;
 
-    // 5. Form Listeners for Live Preview
     document.querySelectorAll("input, textarea, select").forEach(input => {
         input.addEventListener("input", updateOutput);
     });
     document.getElementById("categoriesGrid").addEventListener("change", updateOutput);
     
-    // 6. Action Buttons
     document.getElementById("copyBtn").onclick = copyToClipboard;
     document.getElementById("clearBtn").onclick = clearData;
 });
@@ -57,12 +51,12 @@ async function generateCharacter() {
 
     toggleLoading(true);
 
+    // Prompt diperbarui untuk menyertakan image_prompt
     const systemPrompt = `You are a Character Creator AI. Based on the user's idea, generate a full character profile. 
-    You MUST respond ONLY with a JSON object. Do not write prose. 
-    Fields: title, name, description, bg_story, app_hair, app_eye, app_body, app_clothes, app_accessories, personality (comma separated string), first_message, scenario, dialogue, custom_tags, categories (array of strings matching: ${categoriesList.join(', ')}).`;
+    You MUST respond ONLY with a valid JSON object. Do not write prose or markdown outside the JSON. 
+    Fields required: title, name, description, image_prompt (highly detailed visual prompt for an AI image generator representing the character), bg_story, app_hair, app_eye, app_body, app_clothes, app_accessories, personality (comma separated string), first_message, scenario, dialogue, custom_tags, categories (array of strings exactly matching these: ${categoriesList.join(', ')}).`;
 
     try {
-        let response;
         const payload = {
             model: settings.model,
             messages: [
@@ -72,7 +66,6 @@ async function generateCharacter() {
             temperature: 0.7
         };
 
-        // Basic Fetch for OpenAI-compatible endpoints (OpenRouter, LM Studio, etc.)
         const res = await fetch(settings.url, {
             method: "POST",
             headers: {
@@ -84,12 +77,15 @@ async function generateCharacter() {
 
         const data = await res.json();
         const content = data.choices[0].message.content;
-        const parsedChar = JSON.parse(content.replace(/```json|```/g, "")); // Clean markdown if AI sends it
+        
+        // Membersihkan markdown text (misal: ```json ... ```) yang sering diberikan AI
+        const cleanJsonString = content.replace(/```json/g, "").replace(/```/g, "").trim();
+        const parsedChar = JSON.parse(cleanJsonString); 
 
         fillForm(parsedChar);
     } catch (error) {
         console.error("AI Error:", error);
-        alert("Failed to generate. Check console or API settings.");
+        alert("Failed to generate. AI might not have returned valid JSON, or API is incorrect.");
     } finally {
         toggleLoading(false);
     }
@@ -101,6 +97,7 @@ function fillForm(data) {
     document.getElementById("title").value = data.title || "";
     document.getElementById("name").value = data.name || "";
     document.getElementById("description").value = data.description || "";
+    document.getElementById("image_prompt").value = data.image_prompt || ""; // Data Image Prompt
     document.getElementById("bg_story").value = data.bg_story || "";
     document.getElementById("app_hair").value = data.app_hair || "";
     document.getElementById("app_eye").value = data.app_eye || "";
@@ -113,9 +110,12 @@ function fillForm(data) {
     document.getElementById("dialogue").value = data.dialogue || "";
     document.getElementById("custom_tags").value = data.custom_tags || "";
 
-    // Handle Categories
+    // FIX KATEGORI: Ubah semua ke huruf kecil (lowercase) agar tidak peduli huruf kapital dari AI
+    const aiCategories = (data.categories || []).map(c => c.toLowerCase().trim());
+    
     document.querySelectorAll(".cat-checkbox").forEach(cb => {
-        cb.checked = data.categories && data.categories.includes(cb.value);
+        const checkboxValue = cb.value.toLowerCase().trim();
+        cb.checked = aiCategories.includes(checkboxValue);
     });
 
     updateOutput();
@@ -137,7 +137,7 @@ function updateOutput() {
         personality: form.personality.split(',').map(p => p.trim()).filter(p => p)
     };
 
-    const output = `Title: ${form.title}\nName: ${form.name}\nDescription: ${form.description}\n\n[Persona]\n${JSON.stringify(personaJSON, null, 2)}\n\n[First Message]\n${form.first_message}\n\n[Scenario]\n${form.scenario}\n\n[Example Dialogue]\n${form.dialogue}\n\nTags: ${form.custom_tags}\nCategories: ${form.selected_categories.join(", ")}\nAddition: ${form.addition}`;
+    const output = `Title: ${form.title}\nName: ${form.name}\nDescription: ${form.description}\nImage Prompt: ${form.image_prompt}\n\n[Persona]\n${JSON.stringify(personaJSON, null, 2)}\n\n[First Message]\n${form.first_message}\n\n[Scenario]\n${form.scenario}\n\n[Example Dialogue]\n${form.dialogue}\n\nTags: ${form.custom_tags}\nCategories: ${form.selected_categories.join(", ")}\nAddition: ${form.addition}`;
     
     document.getElementById("outputPreview").textContent = output;
 }
@@ -148,6 +148,7 @@ function getFormData() {
         title: document.getElementById("title").value,
         name: document.getElementById("name").value,
         description: document.getElementById("description").value,
+        image_prompt: document.getElementById("image_prompt") ? document.getElementById("image_prompt").value : "",
         bg_story: document.getElementById("bg_story").value,
         app_hair: document.getElementById("app_hair").value,
         app_eye: document.getElementById("app_eye").value,
@@ -159,13 +160,14 @@ function getFormData() {
         scenario: document.getElementById("scenario").value,
         dialogue: document.getElementById("dialogue").value,
         custom_tags: document.getElementById("custom_tags").value,
-        addition: document.getElementById("addition").value,
+        addition: document.getElementById("addition") ? document.getElementById("addition").value : "",
         selected_categories: selected
     };
 }
 
 function renderCategories() {
     const grid = document.getElementById("categoriesGrid");
+    grid.innerHTML = ""; // Bersihkan dulu agar tidak dobel
     categoriesList.forEach(cat => {
         const label = document.createElement("label");
         label.innerHTML = `<input type="checkbox" value="${cat}" class="cat-checkbox"> ${cat}`;
@@ -197,7 +199,7 @@ function loadCharacterData() {
 }
 
 function clearData() {
-    if (confirm("Clear all?")) {
+    if (confirm("Clear all data?")) {
         localStorage.removeItem("draft_char");
         location.reload();
     }
